@@ -1,0 +1,49 @@
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\Negocio.dll
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\Negocio.pdb
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\Newtonsoft.Json.dll
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\zxing.dll
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\zxing.presentation.dll
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\Newtonsoft.Json.xml
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\zxing.xml
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\zxing.presentation.xml
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\obj\Debug\NegocioPix.csproj.AssemblyReference.cache
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\obj\Debug\NegocioPix.csproj.CoreCompileInputs.cache
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\obj\Debug\NegocioPix.csproj.CopyComplete
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\obj\Debug\Negocio.dll
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\obj\Debug\Negocio.pdb
+F:\Backup Pretinho último\Usuarios\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\Negocio.dll
+F:\Backup Pretinho último\Usuarios\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\Negocio.pdb
+F:\Backup Pretinho último\Usuarios\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\Newtonsoft.Json.dll
+F:\Backup Pretinho último\Usuarios\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\zxing.dll
+F:\Backup Pretinho último\Usuarios\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\zxing.presentation.dll
+F:\Backup Pretinho último\Usuarios\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\Newtonsoft.Json.xml
+F:\Backup Pretinho último\Usuarios\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\zxing.xml
+F:\Backup Pretinho último\Usuarios\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\zxing.presentation.xml
+F:\Backup Pretinho último\Usuarios\br0118831537\source\repos\GeraPixMundoDigital\Negocio\obj\Debug\NegocioPix.csproj.AssemblyReference.cache
+F:\Backup Pretinho último\Usuarios\br0118831537\source\repos\GeraPixMundoDigital\Negocio\obj\Debug\NegocioPix.csproj.CoreCompileInputs.cache
+F:\Backup Pretinho último\Usuarios\br0118831537\source\repos\GeraPixMundoDigital\Negocio\obj\Debug\Negocio.dll
+F:\Backup Pretinho último\Usuarios\br0118831537\source\repos\GeraPixMundoDigital\Negocio\obj\Debug\Negocio.pdb
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital\Negocio\bin\Debug\Negocio.dll
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital\Negocio\bin\Debug\Negocio.pdb
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital\Negocio\bin\Debug\Newtonsoft.Json.dll
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital\Negocio\bin\Debug\zxing.dll
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital\Negocio\bin\Debug\zxing.presentation.dll
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital\Negocio\bin\Debug\Newtonsoft.Json.xml
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital\Negocio\bin\Debug\zxing.xml
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital\Negocio\bin\Debug\zxing.presentation.xml
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital\Negocio\obj\Debug\NegocioPix.csproj.AssemblyReference.cache
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital\Negocio\obj\Debug\NegocioPix.csproj.CoreCompileInputs.cache
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital\Negocio\obj\Debug\Negocio.dll
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital\Negocio\obj\Debug\Negocio.pdb
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\Negocio\bin\Debug\Negocio.dll
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\Negocio\bin\Debug\Negocio.pdb
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\Negocio\bin\Debug\Newtonsoft.Json.dll
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\Negocio\bin\Debug\zxing.xml
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\Negocio\bin\Debug\zxing.presentation.xml
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\Negocio\obj\Debug\NegocioPix.csproj.CoreCompileInputs.cache
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\Negocio\obj\Debug\Negocio.dll
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\Negocio\obj\Debug\Negocio.pdb
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\Negocio\bin\Debug\zxing.dll
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\Negocio\bin\Debug\zxing.presentation.dll
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\Negocio\bin\Debug\Newtonsoft.Json.xml
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\Negocio\obj\Debug\NegocioPix.csproj.AssemblyReference.cache

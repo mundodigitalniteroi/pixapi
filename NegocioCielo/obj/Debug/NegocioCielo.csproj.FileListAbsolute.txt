@@ -1,0 +1,26 @@
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\NegocioCielo\obj\Debug\NegocioCielo.csproj.CoreCompileInputs.cache
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\NegocioCielo\bin\Debug\NegocioCielo.dll
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\NegocioCielo\bin\Debug\NegocioCielo.pdb
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\NegocioCielo\bin\Debug\Newtonsoft.Json.dll
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\NegocioCielo\bin\Debug\Newtonsoft.Json.xml
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\NegocioCielo\obj\Debug\NegocioCielo.csproj.CopyComplete
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\NegocioCielo\obj\Debug\NegocioCielo.dll
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\NegocioCielo\obj\Debug\NegocioCielo.pdb
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\NegocioCielo\obj\Debug\NegocioCielo.csproj.AssemblyReference.cache
+F:\Backup Pretinho último\Usuarios\br0118831537\source\repos\GeraPixMundoDigital\NegocioCielo\bin\Debug\NegocioCielo.dll
+F:\Backup Pretinho último\Usuarios\br0118831537\source\repos\GeraPixMundoDigital\NegocioCielo\bin\Debug\NegocioCielo.pdb
+F:\Backup Pretinho último\Usuarios\br0118831537\source\repos\GeraPixMundoDigital\NegocioCielo\bin\Debug\Newtonsoft.Json.dll
+F:\Backup Pretinho último\Usuarios\br0118831537\source\repos\GeraPixMundoDigital\NegocioCielo\bin\Debug\Newtonsoft.Json.xml
+F:\Backup Pretinho último\Usuarios\br0118831537\source\repos\GeraPixMundoDigital\NegocioCielo\obj\Debug\NegocioCielo.csproj.AssemblyReference.cache
+F:\Backup Pretinho último\Usuarios\br0118831537\source\repos\GeraPixMundoDigital\NegocioCielo\obj\Debug\NegocioCielo.csproj.CoreCompileInputs.cache
+F:\Backup Pretinho último\Usuarios\br0118831537\source\repos\GeraPixMundoDigital\NegocioCielo\obj\Debug\NegocioCielo.dll
+F:\Backup Pretinho último\Usuarios\br0118831537\source\repos\GeraPixMundoDigital\NegocioCielo\obj\Debug\NegocioCielo.pdb
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\NegocioCielo\bin\Debug\NegocioCielo.dll
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\NegocioCielo\bin\Debug\NegocioCielo.pdb
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\NegocioCielo\bin\Debug\Newtonsoft.Json.dll
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\NegocioCielo\obj\Debug\NegocioCielo.csproj.CoreCompileInputs.cache
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\NegocioCielo\obj\Debug\NegocioCielo.dll
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\NegocioCielo\obj\Debug\NegocioCielo.pdb
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\NegocioCielo\bin\Debug\Newtonsoft.Json.xml
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\NegocioCielo\obj\Debug\NegocioCielo.csproj.AssemblyReference.cache
+C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\NegocioCielo\obj\Debug\NegocioCielo.csproj.CopyComplete

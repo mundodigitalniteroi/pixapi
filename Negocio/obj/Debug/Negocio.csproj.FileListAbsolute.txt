@@ -1,0 +1,13 @@
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\obj\Debug\Negocio.csproj.CoreCompileInputs.cache
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\Negocio.dll
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\Negocio.pdb
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\Newtonsoft.Json.dll
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\Newtonsoft.Json.xml
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\obj\Debug\Negocio.csproj.CopyComplete
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\obj\Debug\Negocio.dll
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\obj\Debug\Negocio.pdb
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\zxing.dll
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\zxing.presentation.dll
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\zxing.xml
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Debug\zxing.presentation.xml
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\obj\Debug\Negocio.csproj.AssemblyReference.cache

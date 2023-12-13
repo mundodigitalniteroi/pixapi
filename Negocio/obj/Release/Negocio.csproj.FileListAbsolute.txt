@@ -1,0 +1,13 @@
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Release\Negocio.dll
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Release\Negocio.pdb
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Release\Newtonsoft.Json.dll
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Release\zxing.dll
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Release\zxing.presentation.dll
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Release\Newtonsoft.Json.xml
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Release\zxing.xml
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\bin\Release\zxing.presentation.xml
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\obj\Release\Negocio.csproj.AssemblyReference.cache
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\obj\Release\Negocio.csproj.CoreCompileInputs.cache
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\obj\Release\Negocio.csproj.CopyComplete
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\obj\Release\Negocio.dll
+C:\Users\br0118831537\source\repos\GeraPixMundoDigital\Negocio\obj\Release\Negocio.pdb
