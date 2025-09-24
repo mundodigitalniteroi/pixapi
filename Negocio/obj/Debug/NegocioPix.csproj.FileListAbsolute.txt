@@ -47,3 +47,16 @@ C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\Negocio\bin\Debu
 C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\Negocio\bin\Debug\zxing.presentation.dll
 C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\Negocio\bin\Debug\Newtonsoft.Json.xml
 C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\Negocio\obj\Debug\NegocioPix.csproj.AssemblyReference.cache
+C:\Users\blawe\Documents\GitHub\pixapi\Negocio\bin\Debug\Negocio.dll
+C:\Users\blawe\Documents\GitHub\pixapi\Negocio\bin\Debug\Negocio.pdb
+C:\Users\blawe\Documents\GitHub\pixapi\Negocio\bin\Debug\Newtonsoft.Json.dll
+C:\Users\blawe\Documents\GitHub\pixapi\Negocio\bin\Debug\zxing.dll
+C:\Users\blawe\Documents\GitHub\pixapi\Negocio\bin\Debug\zxing.presentation.dll
+C:\Users\blawe\Documents\GitHub\pixapi\Negocio\bin\Debug\Newtonsoft.Json.xml
+C:\Users\blawe\Documents\GitHub\pixapi\Negocio\bin\Debug\zxing.xml
+C:\Users\blawe\Documents\GitHub\pixapi\Negocio\bin\Debug\zxing.presentation.xml
+C:\Users\blawe\Documents\GitHub\pixapi\Negocio\obj\Debug\NegocioPix.csproj.AssemblyReference.cache
+C:\Users\blawe\Documents\GitHub\pixapi\Negocio\obj\Debug\NegocioPix.csproj.CoreCompileInputs.cache
+C:\Users\blawe\Documents\GitHub\pixapi\Negocio\obj\Debug\NegocioPix.csproj.CopyComplete
+C:\Users\blawe\Documents\GitHub\pixapi\Negocio\obj\Debug\Negocio.dll
+C:\Users\blawe\Documents\GitHub\pixapi\Negocio\obj\Debug\Negocio.pdb

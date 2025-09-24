@@ -24,3 +24,12 @@ C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\NegocioCielo\obj
 C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\NegocioCielo\bin\Debug\Newtonsoft.Json.xml
 C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\NegocioCielo\obj\Debug\NegocioCielo.csproj.AssemblyReference.cache
 C:\Users\blawe\Desktop\Pessoal\Cristiney\GeraPixMundoDigital_v2\NegocioCielo\obj\Debug\NegocioCielo.csproj.CopyComplete
+C:\Users\blawe\Documents\GitHub\pixapi\NegocioCielo\bin\Debug\NegocioCielo.dll
+C:\Users\blawe\Documents\GitHub\pixapi\NegocioCielo\bin\Debug\NegocioCielo.pdb
+C:\Users\blawe\Documents\GitHub\pixapi\NegocioCielo\bin\Debug\Newtonsoft.Json.dll
+C:\Users\blawe\Documents\GitHub\pixapi\NegocioCielo\bin\Debug\Newtonsoft.Json.xml
+C:\Users\blawe\Documents\GitHub\pixapi\NegocioCielo\obj\Debug\NegocioCielo.csproj.AssemblyReference.cache
+C:\Users\blawe\Documents\GitHub\pixapi\NegocioCielo\obj\Debug\NegocioCielo.csproj.CoreCompileInputs.cache
+C:\Users\blawe\Documents\GitHub\pixapi\NegocioCielo\obj\Debug\NegocioCielo.csproj.CopyComplete
+C:\Users\blawe\Documents\GitHub\pixapi\NegocioCielo\obj\Debug\NegocioCielo.dll
+C:\Users\blawe\Documents\GitHub\pixapi\NegocioCielo\obj\Debug\NegocioCielo.pdb
