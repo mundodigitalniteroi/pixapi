@@ -1,4 +1,4 @@
-﻿using Negocio;
+using Negocio;
 using Negocio.Models;
 using Negocio.Models.CobrancaModels;
 using Negocio.Models.PayloadModels;
@@ -27,7 +27,12 @@ namespace GeraPixMundoDigital.Controllers
         [Route("GerarPix")]
         public async Task<Cob> GerarCobrancaPix(CobRequest _cobranca)
         {
-            if (_cobranca.Parametros != null)
+            var provider = _cobranca != null && _cobranca.Provider.HasValue
+                ? _cobranca.Provider.Value
+                : PixProvider.Bradesco;
+
+            // Default (0 / não enviado) continua Bradesco.
+            if (provider == PixProvider.Bradesco && _cobranca.Parametros != null)
             {
 
                 byte[] ArquivoCertificado = Convert.FromBase64String(_cobranca.Parametros.Certificate);
@@ -50,27 +55,36 @@ namespace GeraPixMundoDigital.Controllers
                 ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12|SecurityProtocolType.Tls|SecurityProtocolType.Tls11| SecurityProtocolType.Ssl3;
             }
 
-            var cobRequest = new CobRequestService();
+            var txId = System.Guid.NewGuid().ToString("N");
 
-            var cb = await cobRequest.Create(System.Guid.NewGuid().ToString("N"), _cobranca);
-
-            var payload = cb.ToPayload(new Merchant(_cobranca.merchant.Name, _cobranca.merchant.City));
-
-            var stringToQrCode = payload.GenerateStringToQrCode();
-
-            cb.QrTexto = stringToQrCode;
-
-            using (var ms = new MemoryStream())
+            if (provider == PixProvider.Cora)
             {
-                using (var bitmap = new Bitmap(cobRequest.GerarQRCode(200, 200, stringToQrCode)))
-                {
-                    bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Jpeg);
-                    cb.QrCode = Convert.ToBase64String(ms.GetBuffer()); //Get Base64
-                }
+                var coraService = new CoraPixService();
+                return await coraService.Create(txId, _cobranca);
             }
-            
+            else
+            {
+                var cobRequest = new CobRequestService();
 
-            return cb;
+                var cb = await cobRequest.Create(txId, _cobranca);
+
+                var payload = cb.ToPayload(new Merchant(_cobranca.merchant.Name, _cobranca.merchant.City));
+
+                var stringToQrCode = payload.GenerateStringToQrCode();
+
+                cb.QrTexto = stringToQrCode;
+
+                using (var ms = new MemoryStream())
+                {
+                    using (var bitmap = new Bitmap(cobRequest.GerarQRCode(200, 200, stringToQrCode)))
+                    {
+                        bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Jpeg);
+                        cb.QrCode = Convert.ToBase64String(ms.GetBuffer()); //Get Base64
+                    }
+                }
+
+                return cb;
+            }
         }
 
 
