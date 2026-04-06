@@ -1,14 +1,12 @@
 using Negocio.Extentions;
 using Negocio.Models;
 using Negocio.Requests.RequestModels;
+using Negocio.Config;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Org.BouncyCastle.Crypto;
-using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.OpenSsl;
-using Org.BouncyCastle.Security;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
@@ -16,8 +14,6 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Reflection;
-using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
@@ -29,57 +25,35 @@ namespace Negocio.Requests.RequestServices
     /// </summary>
     public class CoraPixService
     {
-        private const string DefaultTokenBaseUrl = "https://matls-clients.api.stage.cora.com.br";
-        private const string DefaultApiBaseUrl = "https://api.stage.cora.com.br";
-
         public async Task<Cob> Create(string txId, CobRequest request)
         {
             if (request == null)
                 throw new ArgumentNullException(nameof(request));
 
-            if (request.Parametros == null)
-                throw new ArgumentException("Parametros é obrigatório para integração com a Cora.");
+            // Busca dados sensíveis/configuração do Web.config
+            var clientId = ConfigurationManager.AppSettings["CoraClientId"];
+            var certPath = ConfigurationManager.AppSettings["CoraCertPath"];
+            var certKeyPath = ConfigurationManager.AppSettings["CoraCertKeyPath"];
+            var certPassword = ConfigurationManager.AppSettings["CoraCertPassword"];
+            var tokenBaseUrl = ConfigurationManager.AppSettings["CoraTokenBaseUrl"];
+            var apiBaseUrl = ConfigurationManager.AppSettings["CoraApiBaseUrl"];
 
-            if (string.IsNullOrWhiteSpace(request.Parametros.ClientId))
-                throw new ArgumentException("ClientId é obrigatório para integração com a Cora (Integração Direta).");
+            if (string.IsNullOrWhiteSpace(clientId))
+                throw new ArgumentException("ClientId não configurado para integração com a Cora.");
+            if (string.IsNullOrWhiteSpace(certPath) || string.IsNullOrWhiteSpace(certKeyPath))
+                throw new ArgumentException("Certificado/key não configurados para integração com a Cora.");
 
-            X509Certificate2 certificate = null;
+            X509Certificate2 certificate = CertificateHelper.LoadCertificateWithKey(certPath, certKeyPath, certPassword);
 
-            // Prioriza leitura do arquivo se informado
+            var accessToken = await CreateAccessToken(tokenBaseUrl, clientId, certificate).ConfigureAwait(false);
 
-                // Caminho relativo à raiz do projeto
-                var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-                var certPath = "C:\\Repositories\\pixapi\\GeraPixMundoDigital\\Cora\\certificate.pem";
-                //Path.Combine(baseDir, "..", "GeraPixMundoDigital", "CertificadosCora", request.Parametros.CertificateFileName);
-
-                var certKeyPath = "C:\\Repositories\\pixapi\\GeraPixMundoDigital\\Cora\\private-key.key";
-
-                //certPath = Path.GetFullPath(certPath);
-
-                if (!File.Exists(certPath))
-                    throw new ArgumentException($"Certificado não encontrado em: {certPath}");
-                certificate = LoadCertificateWithKey(certPath, certKeyPath);
-
-            var tokenBaseUrl = !string.IsNullOrWhiteSpace(request.Parametros.CoraTokenBaseUrl)
-                ? request.Parametros.CoraTokenBaseUrl
-                : DefaultTokenBaseUrl;
-
-            var apiBaseUrl = !string.IsNullOrWhiteSpace(request.Parametros.CoraApiBaseUrl)
-                ? request.Parametros.CoraApiBaseUrl
-                : DefaultApiBaseUrl;
-
-            var accessToken = await CreateAccessToken(tokenBaseUrl, request.Parametros.ClientId, certificate).ConfigureAwait(false);
-
-            // A API de QR Code Pix da Cora é descrita na documentação, mas o schema completo pode variar por versão.
-            // Por isso, tentamos dois formatos comuns com base nos nossos dados atuais (p.ex. payer/customer + services).
             var payloadA = BuildPayloadVariantA(txId, request);
             var payloadB = BuildPayloadVariantB(txId, request);
 
             var invoiceResult = await CreateInvoice(apiBaseUrl, accessToken, txId, payloadA).ConfigureAwait(false);
 
             // Fallback: se falhar com 4xx (tipicamente payload inválido), tenta segunda variante.
-            if (!invoiceResult.IsSuccessStatusCode && (invoiceResult.StatusCode == System.Net.HttpStatusCode.BadRequest
-                || (int)invoiceResult.StatusCode == 422))
+            if (!invoiceResult.IsSuccessStatusCode && (invoiceResult.StatusCode == HttpStatusCode.BadRequest || (int)invoiceResult.StatusCode == 422))
             {
                 invoiceResult = await CreateInvoice(apiBaseUrl, accessToken, txId, payloadB).ConfigureAwait(false);
             }
@@ -376,43 +350,6 @@ namespace Negocio.Requests.RequestServices
             public string QrString { get; set; }
             public string QrCodeBase64 { get; set; }
         }
-
-        static X509Certificate2 LoadCertificateWithKey(string certPath, string keyPath)
-        {
-            // Carrega o certificado PEM
-            X509Certificate2 cert;
-            using (var reader = File.OpenRead(certPath))
-            {
-                var pemReader = new PemReader(new StreamReader(reader));
-                var certObject = pemReader.ReadObject();
-                var bcCert = (Org.BouncyCastle.X509.X509Certificate)certObject;
-                cert = new X509Certificate2(bcCert.GetEncoded());
-            }
-
-            // Carrega a chave privada PEM
-            AsymmetricCipherKeyPair keyPair;
-            using (var reader = new StreamReader(keyPath))
-            {
-                var pemReader = new PemReader(reader);
-                keyPair = (AsymmetricCipherKeyPair)pemReader.ReadObject();
-            }
-
-            // Converte a chave BouncyCastle para RSA nativo do .NET
-            var rsaParams = DotNetUtilities.ToRSAParameters(
-                (RsaPrivateCrtKeyParameters)keyPair.Private);
-
-            var rsa = new RSACryptoServiceProvider();
-            rsa.ImportParameters(rsaParams);
-
-            // Associa a chave privada ao certificado
-            var certWithKey = cert.CopyWithPrivateKey(rsa); // .NET 4.6.2+
-                                                            // Exporta e reimporta para garantir que o handler reconheça a chave
-            return new X509Certificate2(
-                certWithKey.Export(X509ContentType.Pkcs12),
-                (string)null,
-                X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.Exportable);
-        }
     }
-
 }
 

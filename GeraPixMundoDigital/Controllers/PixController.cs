@@ -31,27 +31,21 @@ namespace GeraPixMundoDigital.Controllers
                 ? _cobranca.Provider.Value
                 : PixProvider.Bradesco;
 
-            // Default (0 / não enviado) continua Bradesco.
             if (provider == PixProvider.Bradesco && _cobranca.Parametros != null)
             {
-
                 byte[] ArquivoCertificado = Convert.FromBase64String(_cobranca.Parametros.Certificate);
-
                 new StartConfig(
                     _baseUrl: _cobranca.Parametros.BaseUrl,
                     _clientId: _cobranca.Parametros.ClientId,
                     _clientSecret: _cobranca.Parametros.ClientSecret,
                     _certificate: new System.Security.Cryptography.X509Certificates.X509Certificate2(ArquivoCertificado, _cobranca.Parametros.SenhaCertificado));
-
                 using (X509Store store = new X509Store(StoreName.My, StoreLocation.CurrentUser))
                 {
                     store.Open(OpenFlags.MaxAllowed);
                     store.Add(StartConfig.Certificate);
                     store.Close();
                 }
-
                 ServicePointManager.Expect100Continue = true;
-
                 ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12|SecurityProtocolType.Tls|SecurityProtocolType.Tls11| SecurityProtocolType.Ssl3;
             }
 
@@ -65,24 +59,18 @@ namespace GeraPixMundoDigital.Controllers
             else
             {
                 var cobRequest = new CobRequestService();
-
                 var cb = await cobRequest.Create(txId, _cobranca);
-
                 var payload = cb.ToPayload(new Merchant(_cobranca.merchant.Name, _cobranca.merchant.City));
-
                 var stringToQrCode = payload.GenerateStringToQrCode();
-
                 cb.QrTexto = stringToQrCode;
-
                 using (var ms = new MemoryStream())
                 {
                     using (var bitmap = new Bitmap(cobRequest.GerarQRCode(200, 200, stringToQrCode)))
                     {
                         bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Jpeg);
-                        cb.QrCode = Convert.ToBase64String(ms.GetBuffer()); //Get Base64
+                        cb.QrCode = Convert.ToBase64String(ms.GetBuffer());
                     }
                 }
-
                 return cb;
             }
         }
