@@ -28,6 +28,8 @@ namespace Negocio.Requests.RequestServices
             if (request == null)
                 throw new ArgumentNullException(nameof(request));
 
+            var idempotencyKey = Guid.NewGuid().ToString("D");
+
             var clientId = request.Parametros.ClientId;
             var certPath = request.Parametros.Certificate;
             var certPassword = request.Parametros.SenhaCertificado;
@@ -48,12 +50,12 @@ namespace Negocio.Requests.RequestServices
             var payloadA = BuildPayloadVariantA(txId, request);
             var payloadB = BuildPayloadVariantB(txId, request);
 
-            var invoiceResult = await CreateInvoice(apiBaseUrl, accessToken, txId, payloadA, certificate).ConfigureAwait(false);
+            var invoiceResult = await CreateInvoice(apiBaseUrl, accessToken, idempotencyKey, payloadA, certificate).ConfigureAwait(false);
 
             // Fallback: se falhar com 4xx (tipicamente payload inválido), tenta segunda variante.
             if (!invoiceResult.IsSuccessStatusCode && (invoiceResult.StatusCode == HttpStatusCode.BadRequest || (int)invoiceResult.StatusCode == 422))
             {
-                invoiceResult = await CreateInvoice(apiBaseUrl, accessToken, txId, payloadB, certificate).ConfigureAwait(false);
+                invoiceResult = await CreateInvoice(apiBaseUrl, accessToken, idempotencyKey, payloadB, certificate).ConfigureAwait(false);
             }
 
             if (!invoiceResult.IsSuccessStatusCode)
@@ -70,13 +72,11 @@ namespace Negocio.Requests.RequestServices
                 QrTexto = qr.QrString,
                 QrCode = qr.QrCodeBase64,
 
-                // Mantém informações que já existem no nosso contrato interno.
                 Valor = request.Valor,
                 merchant = request.merchant,
                 SolicitacaoPagador = request.SolicitacaoPagador
             };
 
-            // Se a Cora retornou apenas a string (EMV/pix payload), geramos o QR image localmente.
             if (string.IsNullOrWhiteSpace(cob.QrCode) && !string.IsNullOrWhiteSpace(cob.QrTexto))
             {
                 var cobRequestService = new CobRequestService();
@@ -105,14 +105,7 @@ namespace Negocio.Requests.RequestServices
 
             using (var client = new HttpClient(handler))
             {
-                var baseUri = new Uri(tokenBaseUrl.TrimEnd('/'));
-                var tokenHost = "matls-clients." + baseUri.Host;
-
-                var tokenUrl = new UriBuilder(baseUri)
-                {
-                    Host = tokenHost,
-                    Path = "/token"
-                }.Uri.ToString();
+                var tokenUrl = tokenBaseUrl.TrimEnd('/') + "/token";
 
                 var formData = new FormUrlEncodedContent(new[]
             {
@@ -131,7 +124,7 @@ namespace Negocio.Requests.RequestServices
             }
         }
 
-        private async Task<InvoiceCreateResult> CreateInvoice(string apiBaseUrl, string accessToken, string txId, object payload, X509Certificate2 certificate)
+        private async Task<InvoiceCreateResult> CreateInvoice(string apiBaseUrl, string accessToken, string idempotencyKey, object payload, X509Certificate2 certificate)
         {
             var invoiceUrl = apiBaseUrl.TrimEnd('/') + "/v2/invoices//";
 
@@ -145,7 +138,8 @@ namespace Negocio.Requests.RequestServices
                 using (var requestMessage = new HttpRequestMessage(HttpMethod.Post, invoiceUrl))
                 {
                     requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-                    requestMessage.Headers.Add("Idempotency-Key", txId);
+                    requestMessage.Headers.Add("Idempotency-Key", idempotencyKey);
+                    requestMessage.Headers.Add("x-idempotency-id", idempotencyKey);
                     requestMessage.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
                     var json = JsonConvert.SerializeObject(payload);
