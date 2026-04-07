@@ -63,7 +63,6 @@
     <Compile Include="Extensions\DateTimeExtension.cs" />
     <Compile Include="Extensions\StringExtension.cs" />
     <Compile Include="Models\Calendario.cs" />
-    <Compile Include="Models\PixProvider.cs" />
     <Compile Include="Models\Cob.cs" />
     <Compile Include="Models\CobrancaModels\Cobranca.cs" />
     <Compile Include="Models\CobrancaModels\CobrancaExtension.cs" />

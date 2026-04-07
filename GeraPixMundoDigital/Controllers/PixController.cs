@@ -27,11 +27,8 @@ namespace GeraPixMundoDigital.Controllers
         [Route("GerarPix")]
         public async Task<Cob> GerarCobrancaPix(CobRequest _cobranca)
         {
-            var provider = _cobranca != null && _cobranca.Provider.HasValue
-                ? _cobranca.Provider.Value
-                : PixProvider.Bradesco;
 
-            if (provider == PixProvider.Bradesco && _cobranca.Parametros != null)
+            if (_cobranca.Provider.ToLowerInvariant() == "bradesco" && _cobranca.Parametros != null)
             {
                 byte[] ArquivoCertificado = Convert.FromBase64String(_cobranca.Parametros.Certificate);
                 new StartConfig(
@@ -51,7 +48,7 @@ namespace GeraPixMundoDigital.Controllers
 
             var txId = System.Guid.NewGuid().ToString("N");
 
-            if (provider == PixProvider.Cora)
+            if (_cobranca.Provider.ToLowerInvariant() == "cora")
             {
                 var coraService = new CoraPixService();
                 return await coraService.Create(txId, _cobranca);

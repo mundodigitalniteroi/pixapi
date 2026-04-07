@@ -1,7 +1,8 @@
+using Negocio.Config;
 using Negocio.Extentions;
 using Negocio.Models;
+using Negocio.Models.CobrancaModels;
 using Negocio.Requests.RequestModels;
-using Negocio.Config;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -20,9 +21,6 @@ using System.Threading.Tasks;
 
 namespace Negocio.Requests.RequestServices
 {
-    /// <summary>
-    /// Integração Direta (mTLS + client_id) com a API da Cora para emissão de cobrança Pix (QR Code).
-    /// </summary>
     public class CoraPixService
     {
         public async Task<Cob> Create(string txId, CobRequest request)
@@ -30,32 +28,32 @@ namespace Negocio.Requests.RequestServices
             if (request == null)
                 throw new ArgumentNullException(nameof(request));
 
-            // Busca dados sensíveis/configuração do Web.config
-            var clientId = ConfigurationManager.AppSettings["CoraClientId"];
-            var certPath = ConfigurationManager.AppSettings["CoraCertPath"];
-            var certKeyPath = ConfigurationManager.AppSettings["CoraCertKeyPath"];
-            var certPassword = ConfigurationManager.AppSettings["CoraCertPassword"];
-            var tokenBaseUrl = ConfigurationManager.AppSettings["CoraTokenBaseUrl"];
-            var apiBaseUrl = ConfigurationManager.AppSettings["CoraApiBaseUrl"];
+            var clientId = request.Parametros.ClientId;
+            var certPath = request.Parametros.Certificate;
+            var certPassword = request.Parametros.SenhaCertificado;
+            var apiBaseUrl = request.Parametros.BaseUrl;
+
 
             if (string.IsNullOrWhiteSpace(clientId))
                 throw new ArgumentException("ClientId não configurado para integração com a Cora.");
-            if (string.IsNullOrWhiteSpace(certPath) || string.IsNullOrWhiteSpace(certKeyPath))
+            if (string.IsNullOrWhiteSpace(certPath) || string.IsNullOrWhiteSpace(certPath))
                 throw new ArgumentException("Certificado/key não configurados para integração com a Cora.");
 
-            X509Certificate2 certificate = CertificateHelper.LoadCertificateWithKey(certPath, certKeyPath, certPassword);
+            byte[] ArquivoCertificado = Convert.FromBase64String(certPath);
 
-            var accessToken = await CreateAccessToken(tokenBaseUrl, clientId, certificate).ConfigureAwait(false);
+            X509Certificate2 certificate = new X509Certificate2(ArquivoCertificado, certPassword);
+
+            var accessToken = await CreateAccessToken(apiBaseUrl, clientId, certificate).ConfigureAwait(false);
 
             var payloadA = BuildPayloadVariantA(txId, request);
             var payloadB = BuildPayloadVariantB(txId, request);
 
-            var invoiceResult = await CreateInvoice(apiBaseUrl, accessToken, txId, payloadA).ConfigureAwait(false);
+            var invoiceResult = await CreateInvoice(apiBaseUrl, accessToken, txId, payloadA, certificate).ConfigureAwait(false);
 
             // Fallback: se falhar com 4xx (tipicamente payload inválido), tenta segunda variante.
             if (!invoiceResult.IsSuccessStatusCode && (invoiceResult.StatusCode == HttpStatusCode.BadRequest || (int)invoiceResult.StatusCode == 422))
             {
-                invoiceResult = await CreateInvoice(apiBaseUrl, accessToken, txId, payloadB).ConfigureAwait(false);
+                invoiceResult = await CreateInvoice(apiBaseUrl, accessToken, txId, payloadB, certificate).ConfigureAwait(false);
             }
 
             if (!invoiceResult.IsSuccessStatusCode)
@@ -97,22 +95,29 @@ namespace Negocio.Requests.RequestServices
 
         private async Task<string> CreateAccessToken(string tokenBaseUrl, string clientId, X509Certificate2 certificate)
         {
+            ServicePointManager.Expect100Continue = true;
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls | SecurityProtocolType.Tls11;
 
-            var handler = new WebRequestHandler();
+            var handler = new HttpClientHandler();
+            handler.ClientCertificateOptions = ClientCertificateOption.Manual;
             handler.ClientCertificates.Add(certificate);
-
-            // Mantém comportamento semelhante ao restante do repositório.
-            // Observação: aceitar qualquer certificado é risco de segurança; ajustar em produção.
-            // handler.ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true;
+            handler.PreAuthenticate = true;
 
             using (var client = new HttpClient(handler))
             {
-                var tokenUrl = tokenBaseUrl.TrimEnd('/') + "/token";
+                var baseUri = new Uri(tokenBaseUrl.TrimEnd('/'));
+                var tokenHost = "matls-clients." + baseUri.Host;
+
+                var tokenUrl = new UriBuilder(baseUri)
+                {
+                    Host = tokenHost,
+                    Path = "/token"
+                }.Uri.ToString();
 
                 var formData = new FormUrlEncodedContent(new[]
             {
                 new KeyValuePair<string, string>("grant_type", "client_credentials"),
-                new KeyValuePair<string, string>("client_id", "seuclientid"),
+                new KeyValuePair<string, string>("client_id", clientId),
             });
 
                 var response = await client.PostAsync(tokenUrl, formData);
@@ -126,20 +131,25 @@ namespace Negocio.Requests.RequestServices
             }
         }
 
-        private async Task<InvoiceCreateResult> CreateInvoice(string apiBaseUrl, string accessToken, string txId, object payload)
+        private async Task<InvoiceCreateResult> CreateInvoice(string apiBaseUrl, string accessToken, string txId, object payload, X509Certificate2 certificate)
         {
-            var invoiceUrl = apiBaseUrl.TrimEnd('/') + "/invoices/";
+            var invoiceUrl = apiBaseUrl.TrimEnd('/') + "/v2/invoices//";
 
             using (var handler = new HttpClientHandler())
-            using (var client = new HttpClient(handler))
-            using (var requestMessage = new HttpRequestMessage(HttpMethod.Post, invoiceUrl))
             {
-                requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-                requestMessage.Headers.Add("Idempotency-Key", txId);
-                requestMessage.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                handler.ClientCertificateOptions = ClientCertificateOption.Manual;
+                handler.ClientCertificates.Add(certificate);
+                handler.PreAuthenticate = true;
 
-                var json = JsonConvert.SerializeObject(payload);
-                requestMessage.Content = new StringContent(json, Encoding.UTF8, "application/json");
+                using (var client = new HttpClient(handler))
+                using (var requestMessage = new HttpRequestMessage(HttpMethod.Post, invoiceUrl))
+                {
+                    requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+                    requestMessage.Headers.Add("Idempotency-Key", txId);
+                    requestMessage.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                    var json = JsonConvert.SerializeObject(payload);
+                    requestMessage.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
                 var response = await client.SendAsync(requestMessage).ConfigureAwait(false);
                 var responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -150,6 +160,7 @@ namespace Negocio.Requests.RequestServices
                     StatusCode = response.StatusCode,
                     ResponseBody = responseBody
                 };
+                }
             }
         }
 
