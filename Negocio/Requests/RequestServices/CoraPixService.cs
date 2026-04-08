@@ -3,6 +3,7 @@ using Negocio.Extentions;
 using Negocio.Models;
 using Negocio.Models.CobrancaModels;
 using Negocio.Requests.RequestModels;
+using Negocio.Responses;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -64,6 +65,7 @@ namespace Negocio.Requests.RequestServices
                 Status = qr.Status ?? "CREATED",
                 QrTexto = qr.QrString,
                 QrCode = qr.QrCodeBase64,
+                Referencia = qr.InvoiceId,
 
                 Valor = request.Valor,
                 merchant = request.merchant,
@@ -136,6 +138,7 @@ namespace Negocio.Requests.RequestServices
                 Status = MapCoraStatusToCobStatus(qr.Status),
                 QrTexto = qr.QrString,
                 QrCode = qr.QrCodeBase64,
+                Referencia = qr.InvoiceId ?? invoiceId,
 
                 Valor = request.Valor ?? BuildValorFromTotalAmountCents(qr.TotalAmountCents),
                 merchant = request.merchant,
@@ -181,6 +184,85 @@ namespace Negocio.Requests.RequestServices
             return cob;
         }
 
+        public async Task<CobConsultaResponse> GetByPeriod(CobRequest request)
+        {
+            if (request == null)
+                throw new ArgumentNullException(nameof(request));
+
+            var clientId = request.Parametros.ClientId;
+            var certPath = request.Parametros.Certificate;
+            var certPassword = request.Parametros.SenhaCertificado;
+            var apiBaseUrl = request.Parametros.BaseUrl;
+
+            if (string.IsNullOrWhiteSpace(clientId))
+                throw new ArgumentException("ClientId não configurado para integração com a Cora.");
+            if (string.IsNullOrWhiteSpace(certPath) || string.IsNullOrWhiteSpace(certPath))
+                throw new ArgumentException("Certificado/key não configurados para integração com a Cora.");
+            if (string.IsNullOrWhiteSpace(request.DataInicio))
+                throw new ArgumentException("DataInicio não informado.");
+
+            DateTime startDate;
+            if (!DateTime.TryParse(request.DataInicio, out startDate))
+                throw new ArgumentException("DataInicio inválido.");
+
+            DateTime? endDate = null;
+            if (!string.IsNullOrWhiteSpace(request.DataFim))
+            {
+                DateTime parsedEnd;
+                if (!DateTime.TryParse(request.DataFim, out parsedEnd))
+                    throw new ArgumentException("DataFim inválido.");
+                endDate = parsedEnd;
+            }
+
+            byte[] ArquivoCertificado = Convert.FromBase64String(certPath);
+            X509Certificate2 certificate = new X509Certificate2(ArquivoCertificado, certPassword);
+
+            var accessToken = await CreateAccessToken(apiBaseUrl, clientId, certificate).ConfigureAwait(false);
+
+            var invoicesResult = await GetInvoices(apiBaseUrl, accessToken, startDate, endDate, certificate).ConfigureAwait(false);
+            if (!invoicesResult.IsSuccessStatusCode)
+                throw new ArgumentException(invoicesResult.ResponseBody ?? "Erro ao consultar cobranças na Cora.");
+
+            var root = JsonConvert.DeserializeObject<JToken>(invoicesResult.ResponseBody);
+            if (root == null)
+                throw new ArgumentException("Resposta inválida da Cora: " + invoicesResult.ResponseBody);
+
+            var items = ExtractFirstArray(root);
+            var cobs = new List<Cob>();
+
+            foreach (var item in items)
+            {
+                var obj = item as JObject;
+                if (obj == null)
+                    continue;
+
+                var qr = ExtractQrFromResponse(obj.ToString(Formatting.None));
+
+                cobs.Add(new Cob(request.Chave)
+                {
+                    Txid = qr.Code ?? qr.InvoiceId,
+                    Status = MapCoraStatusToCobStatus(qr.Status),
+                    QrTexto = qr.QrString,
+                    QrCode = qr.QrCodeBase64,
+                    Referencia = qr.InvoiceId,
+                    Valor = BuildValorFromTotalAmountCents(qr.TotalAmountCents),
+                    Devedor = qr.Devedor
+                });
+            }
+
+            var response = new CobConsultaResponse
+            {
+                Parametros = new Negocio.Responses.Base.Parametros
+                {
+                    Inicio = startDate,
+                    Fim = endDate ?? DateTime.Now
+                },
+                Cobs = cobs
+            };
+
+            return response;
+        }
+
         private async Task<string> CreateAccessToken(string tokenBaseUrl, string clientId, X509Certificate2 certificate)
         {
             ServicePointManager.Expect100Continue = true;
@@ -209,6 +291,45 @@ namespace Negocio.Requests.RequestServices
 
                 var token = JsonConvert.DeserializeObject<Token>(body);
                 return token != null ? token.AccessToken : null;
+            }
+        }
+
+        private async Task<InvoiceCreateResult> GetInvoices(string apiBaseUrl, string accessToken, DateTime startDate, DateTime? endDate, X509Certificate2 certificate)
+        {
+            var url = apiBaseUrl.TrimEnd('/') + "/v2/invoices";
+
+            var query = new List<string>
+            {
+                "start_date=" + Uri.EscapeDataString(startDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))
+            };
+
+            if (endDate != null)
+                query.Add("end_date=" + Uri.EscapeDataString(endDate.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)));
+
+            url = url + "?" + string.Join("&", query);
+
+            using (var handler = new HttpClientHandler())
+            {
+                handler.ClientCertificateOptions = ClientCertificateOption.Manual;
+                handler.ClientCertificates.Add(certificate);
+                handler.PreAuthenticate = true;
+
+                using (var client = new HttpClient(handler))
+                using (var requestMessage = new HttpRequestMessage(HttpMethod.Get, url))
+                {
+                    requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+                    requestMessage.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                    var response = await client.SendAsync(requestMessage).ConfigureAwait(false);
+                    var responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                    return new InvoiceCreateResult
+                    {
+                        IsSuccessStatusCode = response.IsSuccessStatusCode,
+                        StatusCode = response.StatusCode,
+                        ResponseBody = responseBody
+                    };
+                }
             }
         }
 
@@ -310,6 +431,8 @@ namespace Negocio.Requests.RequestServices
 
             var dueDate = DateTime.Today.AddDays(1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
+            var payForm = new[] { "PIX" };
+
             return new
             {
                 code = txId,
@@ -335,7 +458,8 @@ namespace Negocio.Requests.RequestServices
                 payment_terms = new
                 {
                     due_date = dueDate
-                }
+                },
+                payment_forms = payForm
             };
         }
 
@@ -451,6 +575,38 @@ namespace Negocio.Requests.RequestServices
             }
 
             return null;
+        }
+
+        private static JArray ExtractFirstArray(JToken token)
+        {
+            if (token == null)
+                return new JArray();
+
+            var arr = token as JArray;
+            if (arr != null)
+                return arr;
+
+            var obj = token as JObject;
+            if (obj != null)
+            {
+                var candidates = new[] { "invoices", "data", "items", "results" };
+                foreach (var c in candidates)
+                {
+                    var t = obj[c];
+                    var a = t as JArray;
+                    if (a != null)
+                        return a;
+                }
+
+                foreach (var prop in obj.Properties())
+                {
+                    var a = prop.Value as JArray;
+                    if (a != null)
+                        return a;
+                }
+            }
+
+            return new JArray();
         }
 
         private static string NormalizeUrl(string value)

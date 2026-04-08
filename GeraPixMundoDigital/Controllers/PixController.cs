@@ -140,6 +140,11 @@ namespace GeraPixMundoDigital.Controllers
         [Route("ConsultarPixPeriodo")]
         public async Task<CobConsultaResponse> CobGetByPeriod(CobRequest _cobranca)
         {
+            if (_cobranca.Provider == "cora" && _cobranca.Parametros != null)
+            {
+                var coraService = new CoraPixService();
+                return await coraService.GetByPeriod(_cobranca);
+            }
 
             if (_cobranca.Parametros != null)
             {
