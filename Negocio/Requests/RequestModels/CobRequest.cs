@@ -39,5 +39,8 @@ namespace Negocio.Requests.RequestModels
 
         [JsonProperty("DataFim")]
         public string DataFim { get; set; }
+
+        [JsonProperty]
+        public string Referencia { get; set; }
     }
 }

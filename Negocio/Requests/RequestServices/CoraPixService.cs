@@ -47,16 +47,9 @@ namespace Negocio.Requests.RequestServices
 
             var accessToken = await CreateAccessToken(apiBaseUrl, clientId, certificate).ConfigureAwait(false);
 
-            var payloadA = BuildPayloadVariantA(txId, request);
-            var payloadB = BuildPayloadVariantB(txId, request);
+            var payloadA = BuildPayload(txId, request);
 
             var invoiceResult = await CreateInvoice(apiBaseUrl, accessToken, idempotencyKey, payloadA, certificate).ConfigureAwait(false);
-
-            // Fallback: se falhar com 4xx (tipicamente payload inválido), tenta segunda variante.
-            if (!invoiceResult.IsSuccessStatusCode && (invoiceResult.StatusCode == HttpStatusCode.BadRequest || (int)invoiceResult.StatusCode == 422))
-            {
-                invoiceResult = await CreateInvoice(apiBaseUrl, accessToken, idempotencyKey, payloadB, certificate).ConfigureAwait(false);
-            }
 
             if (!invoiceResult.IsSuccessStatusCode)
             {
@@ -67,7 +60,7 @@ namespace Negocio.Requests.RequestServices
 
             var cob = new Cob(request.Chave)
             {
-                Txid = qr.Txid ?? txId,
+                Txid = txId,
                 Status = qr.Status ?? "CREATED",
                 QrTexto = qr.QrString,
                 QrCode = qr.QrCodeBase64,
@@ -76,6 +69,101 @@ namespace Negocio.Requests.RequestServices
                 merchant = request.merchant,
                 SolicitacaoPagador = request.SolicitacaoPagador
             };
+
+            if (string.IsNullOrWhiteSpace(cob.QrCode) && !string.IsNullOrWhiteSpace(qr.QrCodeUrl))
+            {
+                var url = NormalizeUrl(qr.QrCodeUrl);
+                if (!string.IsNullOrWhiteSpace(url))
+                {
+                    using (var httpClient = new HttpClient())
+                    {
+                        var bytes = await httpClient.GetByteArrayAsync(url).ConfigureAwait(false);
+                        if (bytes != null && bytes.Length > 0)
+                            cob.QrCode = Convert.ToBase64String(bytes);
+                    }
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(cob.QrCode) && !string.IsNullOrWhiteSpace(cob.QrTexto))
+            {
+                var cobRequestService = new CobRequestService();
+                using (var ms = new MemoryStream())
+                {
+                    using (var bitmap = new Bitmap(cobRequestService.GerarQRCode(200, 200, cob.QrTexto)))
+                    {
+                        bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Jpeg);
+                        cob.QrCode = Convert.ToBase64String(ms.GetBuffer());
+                    }
+                }
+            }
+
+            return cob;
+        }
+
+        public async Task<Cob> GetByReferencia(CobRequest request)
+        {
+            if (request == null)
+                throw new ArgumentNullException(nameof(request));
+
+            var invoiceId = request.Referencia;
+            if (string.IsNullOrWhiteSpace(invoiceId))
+                throw new ArgumentException("Referencia (id da invoice da Cora) não informado.");
+
+            var clientId = request.Parametros.ClientId;
+            var certPath = request.Parametros.Certificate;
+            var certPassword = request.Parametros.SenhaCertificado;
+            var apiBaseUrl = request.Parametros.BaseUrl;
+
+            if (string.IsNullOrWhiteSpace(clientId))
+                throw new ArgumentException("ClientId não configurado para integração com a Cora.");
+            if (string.IsNullOrWhiteSpace(certPath) || string.IsNullOrWhiteSpace(certPath))
+                throw new ArgumentException("Certificado/key não configurados para integração com a Cora.");
+
+            byte[] ArquivoCertificado = Convert.FromBase64String(certPath);
+            X509Certificate2 certificate = new X509Certificate2(ArquivoCertificado, certPassword);
+
+            var accessToken = await CreateAccessToken(apiBaseUrl, clientId, certificate).ConfigureAwait(false);
+
+            var invoiceResult = await GetInvoice(apiBaseUrl, accessToken, invoiceId, certificate).ConfigureAwait(false);
+            if (!invoiceResult.IsSuccessStatusCode)
+                throw new ArgumentException(invoiceResult.ResponseBody ?? "Erro ao consultar cobrança Pix na Cora.");
+
+            var qr = ExtractQrFromResponse(invoiceResult.ResponseBody);
+
+            var cob = new Cob(request.Chave)
+            {
+                Txid = qr.Code ?? request.txId,
+                Status = MapCoraStatusToCobStatus(qr.Status),
+                QrTexto = qr.QrString,
+                QrCode = qr.QrCodeBase64,
+
+                Valor = request.Valor ?? BuildValorFromTotalAmountCents(qr.TotalAmountCents),
+                merchant = request.merchant,
+                SolicitacaoPagador = request.SolicitacaoPagador,
+                Devedor = request.Devedor ?? qr.Devedor
+            };
+
+            if (string.IsNullOrWhiteSpace(cob.QrCode) && !string.IsNullOrWhiteSpace(qr.QrCodeUrl))
+            {
+                var url = NormalizeUrl(qr.QrCodeUrl);
+                if (!string.IsNullOrWhiteSpace(url))
+                {
+                    using (var httpClient = new HttpClient())
+                    using (var response = await httpClient.GetAsync(url).ConfigureAwait(false))
+                    {
+                        if (response.IsSuccessStatusCode)
+                        {
+                            var mediaType = response.Content?.Headers?.ContentType?.MediaType;
+                            if (!string.IsNullOrWhiteSpace(mediaType) && mediaType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var bytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+                                if (bytes != null && bytes.Length > 0)
+                                    cob.QrCode = Convert.ToBase64String(bytes);
+                            }
+                        }
+                    }
+                }
+            }
 
             if (string.IsNullOrWhiteSpace(cob.QrCode) && !string.IsNullOrWhiteSpace(cob.QrTexto))
             {
@@ -145,89 +233,108 @@ namespace Negocio.Requests.RequestServices
                     var json = JsonConvert.SerializeObject(payload);
                     requestMessage.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                var response = await client.SendAsync(requestMessage).ConfigureAwait(false);
-                var responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    var response = await client.SendAsync(requestMessage).ConfigureAwait(false);
+                    var responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
-                return new InvoiceCreateResult
-                {
-                    IsSuccessStatusCode = response.IsSuccessStatusCode,
-                    StatusCode = response.StatusCode,
-                    ResponseBody = responseBody
-                };
+                    return new InvoiceCreateResult
+                    {
+                        IsSuccessStatusCode = response.IsSuccessStatusCode,
+                        StatusCode = response.StatusCode,
+                        ResponseBody = responseBody
+                    };
                 }
             }
         }
 
-        private object BuildPayloadVariantA(string txId, CobRequest request)
+        private async Task<InvoiceCreateResult> GetInvoice(string apiBaseUrl, string accessToken, string invoiceId, X509Certificate2 certificate)
         {
-            var amount = request.Valor != null ? request.Valor.Original.ToDecimalUSCulture() : 0m;
+            var invoiceUrl = apiBaseUrl.TrimEnd('/') + "/v2/invoices/" + invoiceId;
 
-            var payerName = request.Devedor != null ? request.Devedor.Nome : null;
-            var documentType = request.Devedor != null && request.Devedor.IsCNPJ ? "CNPJ" : "CPF";
-            var documentNumber = request.Devedor != null
-                ? (request.Devedor.IsCNPJ ? request.Devedor.Cnpj : request.Devedor.Cpf)
-                : null;
-
-            var description = !string.IsNullOrWhiteSpace(request.SolicitacaoPagador)
-                ? request.SolicitacaoPagador
-                : (!string.IsNullOrWhiteSpace(request.merchant != null ? request.merchant.Name : null) ? request.merchant.Name : "Pix cobrança");
-
-            // Alguns endpoints aceitam "expiration" em segundos.
-            // Se a Cora exigir outra chave (p.ex. due_date), ajustamos no próximo iteration.
-            var expirationSeconds = request.Calendario != null ? request.Calendario.Expiracao : (int?)null;
-
-            return new
+            using (var handler = new HttpClientHandler())
             {
-                code = txId,
-                amount = amount,
-                description = description,
-                expiration = expirationSeconds,
-                payer = new
+                handler.ClientCertificateOptions = ClientCertificateOption.Manual;
+                handler.ClientCertificates.Add(certificate);
+                handler.PreAuthenticate = true;
+
+                using (var client = new HttpClient(handler))
+                using (var requestMessage = new HttpRequestMessage(HttpMethod.Get, invoiceUrl))
                 {
-                    name = payerName,
-                    document = documentNumber,
-                    document_type = documentType
+                    requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+                    requestMessage.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                    var response = await client.SendAsync(requestMessage).ConfigureAwait(false);
+                    var responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                    return new InvoiceCreateResult
+                    {
+                        IsSuccessStatusCode = response.IsSuccessStatusCode,
+                        StatusCode = response.StatusCode,
+                        ResponseBody = responseBody
+                    };
                 }
-            };
+            }
         }
 
-        private object BuildPayloadVariantB(string txId, CobRequest request)
+        private object BuildPayload(string txId, CobRequest request)
         {
-            var amount = request.Valor != null ? request.Valor.Original.ToDecimalUSCulture() : 0m;
+            var amountCents = 500;
+            if (!string.IsNullOrWhiteSpace(request?.Valor?.Original))
+            {
+                var decimalValue = request.Valor.Original.ToDecimalUSCulture();
+                amountCents = (int)Math.Round(decimalValue * 100m, MidpointRounding.AwayFromZero);
+                if (amountCents < 500)
+                    amountCents = 500;
+            }
 
-            var documentType = request.Devedor != null && request.Devedor.IsCNPJ ? "CNPJ" : "CPF";
-            var documentNumber = request.Devedor != null
+            var customerName = !string.IsNullOrWhiteSpace(request?.Devedor?.Nome) ? request.Devedor.Nome : "Cliente Pix";
+
+            var identity = request?.Devedor != null
                 ? (request.Devedor.IsCNPJ ? request.Devedor.Cnpj : request.Devedor.Cpf)
                 : null;
 
-            var customerName = request.Devedor != null ? request.Devedor.Nome : null;
-            var description = !string.IsNullOrWhiteSpace(request.SolicitacaoPagador)
-                ? request.SolicitacaoPagador
-                : (!string.IsNullOrWhiteSpace(request.merchant != null ? request.merchant.Name : null) ? request.merchant.Name : "Pix cobrança");
+            if (!string.IsNullOrWhiteSpace(identity))
+                identity = new string(identity.Where(char.IsDigit).ToArray());
 
-            var expirationSeconds = request.Calendario != null ? request.Calendario.Expiracao : (int?)null;
+            if (string.IsNullOrWhiteSpace(identity))
+                identity = "00000000000";
+
+            var documentType = request?.Devedor != null && request.Devedor.IsCNPJ ? "CNPJ" : "CPF";
+            if (string.IsNullOrWhiteSpace(documentType))
+                documentType = identity.Length > 11 ? "CNPJ" : "CPF";
+
+            var description = !string.IsNullOrWhiteSpace(request?.SolicitacaoPagador)
+                ? request.SolicitacaoPagador
+                : (!string.IsNullOrWhiteSpace(request?.merchant?.Name) ? request.merchant.Name : "Pix cobrança");
+
+            var serviceName = !string.IsNullOrWhiteSpace(request?.merchant?.Name) ? request.merchant.Name : "Pix";
+
+            var dueDate = DateTime.Today.AddDays(1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
             return new
             {
                 code = txId,
-                expiration = expirationSeconds,
                 customer = new
                 {
                     name = customerName,
+                    email = "cliente@example.com",
                     document = new
                     {
-                        type = documentType,
-                        number = documentNumber
+                        identity = identity,
+                        type = documentType
                     }
                 },
                 services = new object[]
                 {
                     new
                     {
-                        name = request.merchant != null ? request.merchant.Name : "Pix",
+                        name = serviceName,
                         description = description,
-                        amount = amount
+                        amount = amountCents
                     }
+                },
+                payment_terms = new
+                {
+                    due_date = dueDate
                 }
             };
         }
@@ -241,11 +348,28 @@ namespace Negocio.Requests.RequestServices
             if (obj == null)
                 throw new ArgumentException("Resposta inválida da Cora: " + responseBody);
 
-            var txid = FindFirstString(obj, "invoice_id", "id", "txid", "transaction_id", "code");
+            var invoiceId = FindFirstString(obj, "invoice_id", "id");
+            var code = FindFirstString(obj, "code", "txid", "transaction_id");
             var status = FindFirstString(obj, "status", "payment_status", "paymentStatus");
 
+            var totalAmountCents = GetIntByPath(obj, "total_amount");
+
+            var customerName = GetStringByPath(obj, "customer.name");
+            var customerDocIdentity = GetStringByPath(obj, "customer.document.identity");
+            var customerDocType = GetStringByPath(obj, "customer.document.type");
+            var devedor = BuildDevedorFromCustomer(customerName, customerDocType, customerDocIdentity);
+
+            var qrUrl = GetStringByPath(obj, "payment_options.bank_slip.url")
+                ?? GetStringByPath(obj, "pix.bank_slip.url")
+                ?? GetStringByPath(obj, "payment_options.pix.url")
+                ?? GetStringByPath(obj, "pix.qr_code.url")
+                ?? GetStringByPath(obj, "pix.qrcode.url")
+                ?? GetStringByPath(obj, "pix.url");
+
             // Tentativas de achar payload/QR string.
-            var qrString = FindFirstString(obj,
+            var qrString = GetStringByPath(obj, "pix.emv")
+                ?? GetStringByPath(obj, "payment_options.pix.emv")
+                ?? FindFirstString(obj,
                 "qr_string",
                 "qrstring",
                 "qrCodeString",
@@ -280,11 +404,62 @@ namespace Negocio.Requests.RequestServices
             // Se só achou base64 mas qrString está vazio, mantemos só base64.
             return new QrExtractionResult
             {
-                Txid = txid,
+                InvoiceId = invoiceId,
+                Code = code,
                 Status = status,
                 QrString = qrString,
-                QrCodeBase64 = qrCodeBase64
+                QrCodeBase64 = qrCodeBase64,
+                QrCodeUrl = qrUrl,
+                TotalAmountCents = totalAmountCents,
+                Devedor = devedor
             };
+        }
+
+        private static string GetStringByPath(JObject obj, string jsonPath)
+        {
+            if (obj == null || string.IsNullOrWhiteSpace(jsonPath))
+                return null;
+
+            var token = obj.SelectToken(jsonPath);
+            if (token == null || token.Type != JTokenType.String)
+                return null;
+
+            var value = token.ToString();
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+
+        private static int? GetIntByPath(JObject obj, string jsonPath)
+        {
+            if (obj == null || string.IsNullOrWhiteSpace(jsonPath))
+                return null;
+
+            var token = obj.SelectToken(jsonPath);
+            if (token == null)
+                return null;
+
+            if (token.Type == JTokenType.Integer)
+                return token.Value<int>();
+
+            if (token.Type == JTokenType.Float)
+                return (int)Math.Round(token.Value<double>(), MidpointRounding.AwayFromZero);
+
+            if (token.Type == JTokenType.String)
+            {
+                int parsed;
+                if (int.TryParse(token.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed))
+                    return parsed;
+            }
+
+            return null;
+        }
+
+        private static string NormalizeUrl(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+
+            var cleaned = new string(value.Where(c => !char.IsWhiteSpace(c) && c != '`' && c != '"').ToArray());
+            return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned;
         }
 
         private static string FindFirstString(JToken token, params string[] keys)
@@ -316,7 +491,6 @@ namespace Negocio.Requests.RequestServices
                 }
             }
 
-            // Quando é array, percorre elementos.
             var arr = token as JArray;
             if (arr != null)
             {
@@ -341,6 +515,53 @@ namespace Negocio.Requests.RequestServices
                 || value.IndexOf("br.gov.bcb.pix", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
+        private static string MapCoraStatusToCobStatus(string status)
+        {
+            if (string.IsNullOrWhiteSpace(status))
+                return status;
+
+            switch (status.Trim().ToUpperInvariant())
+            {
+                case "OPEN":
+                case "IN_PAYMENT":
+                case "DRAFT":
+                case "LATE":
+                    return "ATIVA";
+                case "PAID":
+                    return "CONCLUIDA";
+                case "CANCELLED":
+                    return "REMOVIDA_PELO_USUARIO_RECEBEDOR";
+                default:
+                    return status;
+            }
+        }
+
+        private static Valor BuildValorFromTotalAmountCents(int? cents)
+        {
+            if (cents == null)
+                return null;
+
+            var decimalValue = cents.Value / 100m;
+            return new Valor { Original = decimalValue.ToString("0.00", CultureInfo.InvariantCulture) };
+        }
+
+        private static Devedor BuildDevedorFromCustomer(string name, string docType, string identity)
+        {
+            if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(identity))
+                return null;
+
+            var digits = string.IsNullOrWhiteSpace(identity) ? null : new string(identity.Where(char.IsDigit).ToArray());
+            var type = string.IsNullOrWhiteSpace(docType) ? null : docType.Trim().ToUpperInvariant();
+
+            var devedor = new Devedor { Nome = name };
+            if (type == "CNPJ" || (!string.IsNullOrWhiteSpace(digits) && digits.Length > 11))
+                devedor.Cnpj = digits;
+            else
+                devedor.Cpf = digits;
+
+            return devedor;
+        }
+
         private class InvoiceCreateResult
         {
             public bool IsSuccessStatusCode { get; set; }
@@ -350,10 +571,14 @@ namespace Negocio.Requests.RequestServices
 
         private class QrExtractionResult
         {
-            public string Txid { get; set; }
+            public string InvoiceId { get; set; }
+            public string Code { get; set; }
             public string Status { get; set; }
             public string QrString { get; set; }
             public string QrCodeBase64 { get; set; }
+            public string QrCodeUrl { get; set; }
+            public int? TotalAmountCents { get; set; }
+            public Devedor Devedor { get; set; }
         }
     }
 }

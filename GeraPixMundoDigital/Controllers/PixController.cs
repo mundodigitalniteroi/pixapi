@@ -104,7 +104,7 @@ namespace GeraPixMundoDigital.Controllers
         [Route("ConsultarPix")]
         public async Task<Cob> ConsultarPix(CobRequest _cobranca)
         {
-            if (_cobranca.Parametros != null)
+            if (_cobranca.Provider == "bradesco" && _cobranca.Parametros != null)
             {
 
                 byte[] ArquivoCertificado = Convert.FromBase64String(_cobranca.Parametros.Certificate);
@@ -121,13 +121,19 @@ namespace GeraPixMundoDigital.Controllers
                     store.Add(StartConfig.Certificate);
                     store.Close();
                 }
+
+                var cobRequest = new CobRequestService();
+
+                var cb = await cobRequest.GetByTxId(_cobranca.txId);
+
+                return cb;
             }
-
-            var cobRequest = new CobRequestService();
-
-            var cb = await cobRequest.GetByTxId(_cobranca.txId);
-
-            return cb;
+            else if (_cobranca.Provider == "cora" && _cobranca.Parametros != null)
+            {
+                var coraService = new CoraPixService();
+                return await coraService.GetByReferencia(_cobranca);
+            }
+            throw new HttpResponseException(HttpStatusCode.BadRequest);
         }
 
         [AcceptVerbs("POST")]
