@@ -19,6 +19,8 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
+using ZXing;
+using ZXing.Common;
 
 namespace Negocio.Requests.RequestServices
 {
@@ -57,47 +59,23 @@ namespace Negocio.Requests.RequestServices
                 throw new ArgumentException(invoiceResult.ResponseBody ?? "Erro ao criar cobrança Pix na Cora.");
             }
 
-            var qr = ExtractQrFromResponse(invoiceResult.ResponseBody);
+            var invoice = DeserializeInvoice(invoiceResult.ResponseBody);
+
+            var status = !string.IsNullOrWhiteSpace(invoice.Status) ? MapCoraStatusToCobStatus(invoice.Status) : "CREATED";
+            var emv = invoice.Pix != null ? invoice.Pix.Emv : null;
 
             var cob = new Cob(request.Chave)
             {
-                Txid = txId,
-                Status = qr.Status ?? "CREATED",
-                QrTexto = qr.QrString,
-                QrCode = qr.QrCodeBase64,
-                Referencia = qr.InvoiceId,
+                Txid = invoice.Code ?? txId,
+                Status = status,
+                QrTexto = emv,
+                QrCode = !string.IsNullOrWhiteSpace(emv) ? GenerateQrCodeBase64(emv) : null,
+                Referencia = invoice.Id,
 
                 Valor = request.Valor,
                 merchant = request.merchant,
                 SolicitacaoPagador = request.SolicitacaoPagador
             };
-
-            if (string.IsNullOrWhiteSpace(cob.QrCode) && !string.IsNullOrWhiteSpace(qr.QrCodeUrl))
-            {
-                var url = NormalizeUrl(qr.QrCodeUrl);
-                if (!string.IsNullOrWhiteSpace(url))
-                {
-                    using (var httpClient = new HttpClient())
-                    {
-                        var bytes = await httpClient.GetByteArrayAsync(url).ConfigureAwait(false);
-                        if (bytes != null && bytes.Length > 0)
-                            cob.QrCode = Convert.ToBase64String(bytes);
-                    }
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(cob.QrCode) && !string.IsNullOrWhiteSpace(cob.QrTexto))
-            {
-                var cobRequestService = new CobRequestService();
-                using (var ms = new MemoryStream())
-                {
-                    using (var bitmap = new Bitmap(cobRequestService.GerarQRCode(200, 200, cob.QrTexto)))
-                    {
-                        bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Jpeg);
-                        cob.QrCode = Convert.ToBase64String(ms.GetBuffer());
-                    }
-                }
-            }
 
             return cob;
         }
@@ -130,56 +108,24 @@ namespace Negocio.Requests.RequestServices
             if (!invoiceResult.IsSuccessStatusCode)
                 throw new ArgumentException(invoiceResult.ResponseBody ?? "Erro ao consultar cobrança Pix na Cora.");
 
-            var qr = ExtractQrFromResponse(invoiceResult.ResponseBody);
+            var invoice = DeserializeInvoice(invoiceResult.ResponseBody);
+
+            var status = !string.IsNullOrWhiteSpace(invoice.Status) ? MapCoraStatusToCobStatus(invoice.Status) : "CREATED";
+            var emv = invoice.Pix != null ? invoice.Pix.Emv : null;
 
             var cob = new Cob(request.Chave)
             {
-                Txid = qr.Code ?? request.txId,
-                Status = MapCoraStatusToCobStatus(qr.Status),
-                QrTexto = qr.QrString,
-                QrCode = qr.QrCodeBase64,
-                Referencia = qr.InvoiceId ?? invoiceId,
+                Txid = invoice.Code ?? request.txId,
+                Status = status,
+                QrTexto = emv,
+                QrCode = !string.IsNullOrWhiteSpace(emv) ? GenerateQrCodeBase64(emv) : null,
+                Referencia = invoice.Id ?? invoiceId,
 
-                Valor = request.Valor ?? BuildValorFromTotalAmountCents(qr.TotalAmountCents),
+                Valor = request.Valor ?? BuildValorFromTotalAmountCents(invoice.TotalAmount),
                 merchant = request.merchant,
                 SolicitacaoPagador = request.SolicitacaoPagador,
-                Devedor = request.Devedor ?? qr.Devedor
+                Devedor = request.Devedor ?? BuildDevedorFromCustomer(invoice.Customer != null ? invoice.Customer.Name : null, invoice.Customer != null && invoice.Customer.Document != null ? invoice.Customer.Document.Type : null, invoice.Customer != null && invoice.Customer.Document != null ? invoice.Customer.Document.Identity : null)
             };
-
-            if (string.IsNullOrWhiteSpace(cob.QrCode) && !string.IsNullOrWhiteSpace(qr.QrCodeUrl))
-            {
-                var url = NormalizeUrl(qr.QrCodeUrl);
-                if (!string.IsNullOrWhiteSpace(url))
-                {
-                    using (var httpClient = new HttpClient())
-                    using (var response = await httpClient.GetAsync(url).ConfigureAwait(false))
-                    {
-                        if (response.IsSuccessStatusCode)
-                        {
-                            var mediaType = response.Content?.Headers?.ContentType?.MediaType;
-                            if (!string.IsNullOrWhiteSpace(mediaType) && mediaType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
-                            {
-                                var bytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
-                                if (bytes != null && bytes.Length > 0)
-                                    cob.QrCode = Convert.ToBase64String(bytes);
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(cob.QrCode) && !string.IsNullOrWhiteSpace(cob.QrTexto))
-            {
-                var cobRequestService = new CobRequestService();
-                using (var ms = new MemoryStream())
-                {
-                    using (var bitmap = new Bitmap(cobRequestService.GerarQRCode(200, 200, cob.QrTexto)))
-                    {
-                        bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Jpeg);
-                        cob.QrCode = Convert.ToBase64String(ms.GetBuffer());
-                    }
-                }
-            }
 
             return cob;
         }
@@ -223,30 +169,23 @@ namespace Negocio.Requests.RequestServices
             if (!invoicesResult.IsSuccessStatusCode)
                 throw new ArgumentException(invoicesResult.ResponseBody ?? "Erro ao consultar cobranças na Cora.");
 
-            var root = JsonConvert.DeserializeObject<JToken>(invoicesResult.ResponseBody);
-            if (root == null)
-                throw new ArgumentException("Resposta inválida da Cora: " + invoicesResult.ResponseBody);
-
-            var items = ExtractFirstArray(root);
             var cobs = new List<Cob>();
 
-            foreach (var item in items)
+            var invoices = DeserializeInvoiceList(invoicesResult.ResponseBody);
+            foreach (var invoice in invoices)
             {
-                var obj = item as JObject;
-                if (obj == null)
-                    continue;
-
-                var qr = ExtractQrFromResponse(obj.ToString(Formatting.None));
+                var status = !string.IsNullOrWhiteSpace(invoice.Status) ? MapCoraStatusToCobStatus(invoice.Status) : "CREATED";
+                var emv = invoice.Pix != null ? invoice.Pix.Emv : null;
 
                 cobs.Add(new Cob(request.Chave)
                 {
-                    Txid = qr.Code ?? qr.InvoiceId,
-                    Status = MapCoraStatusToCobStatus(qr.Status),
-                    QrTexto = qr.QrString,
-                    QrCode = qr.QrCodeBase64,
-                    Referencia = qr.InvoiceId,
-                    Valor = BuildValorFromTotalAmountCents(qr.TotalAmountCents),
-                    Devedor = qr.Devedor
+                    Txid = invoice.Code ?? invoice.Id,
+                    Status = status,
+                    QrTexto = emv,
+                    QrCode = !string.IsNullOrWhiteSpace(emv) ? GenerateQrCodeBase64(emv) : null,
+                    Referencia = invoice.Id,
+                    Valor = BuildValorFromTotalAmountCents(invoice.TotalAmount),
+                    Devedor = BuildDevedorFromCustomer(invoice.Customer != null ? invoice.Customer.Name : null, invoice.Customer != null && invoice.Customer.Document != null ? invoice.Customer.Document.Type : null, invoice.Customer != null && invoice.Customer.Document != null ? invoice.Customer.Document.Identity : null)
                 });
             }
 
@@ -463,212 +402,62 @@ namespace Negocio.Requests.RequestServices
             };
         }
 
-        private QrExtractionResult ExtractQrFromResponse(string responseBody)
+        private static CoraInvoiceResponse DeserializeInvoice(string responseBody)
         {
             if (string.IsNullOrWhiteSpace(responseBody))
                 throw new ArgumentException("Resposta vazia da Cora.");
 
-            var obj = JsonConvert.DeserializeObject<JObject>(responseBody);
-            if (obj == null)
+            var invoice = JsonConvert.DeserializeObject<CoraInvoiceResponse>(responseBody);
+            if (invoice == null || string.IsNullOrWhiteSpace(invoice.Id))
                 throw new ArgumentException("Resposta inválida da Cora: " + responseBody);
 
-            var invoiceId = FindFirstString(obj, "invoice_id", "id");
-            var code = FindFirstString(obj, "code", "txid", "transaction_id");
-            var status = FindFirstString(obj, "status", "payment_status", "paymentStatus");
-
-            var totalAmountCents = GetIntByPath(obj, "total_amount");
-
-            var customerName = GetStringByPath(obj, "customer.name");
-            var customerDocIdentity = GetStringByPath(obj, "customer.document.identity");
-            var customerDocType = GetStringByPath(obj, "customer.document.type");
-            var devedor = BuildDevedorFromCustomer(customerName, customerDocType, customerDocIdentity);
-
-            var qrUrl = GetStringByPath(obj, "payment_options.bank_slip.url")
-                ?? GetStringByPath(obj, "pix.bank_slip.url")
-                ?? GetStringByPath(obj, "payment_options.pix.url")
-                ?? GetStringByPath(obj, "pix.qr_code.url")
-                ?? GetStringByPath(obj, "pix.qrcode.url")
-                ?? GetStringByPath(obj, "pix.url");
-
-            // Tentativas de achar payload/QR string.
-            var qrString = GetStringByPath(obj, "pix.emv")
-                ?? GetStringByPath(obj, "payment_options.pix.emv")
-                ?? FindFirstString(obj,
-                "qr_string",
-                "qrstring",
-                "qrCodeString",
-                "pix_copy_and_paste",
-                "pix_copy_and_paste_string",
-                "pix_copia_e_colar",
-                "payload",
-                "emv"
-            );
-
-            // Tentativas de base64.
-            var qrCodeBase64 = FindFirstString(obj,
-                "qr_code_base64",
-                "qrCodeBase64",
-                "qrCode",
-                "qr_code"
-            );
-
-            // Heurística: se "qrCodeBase64" parece EMV (começa com 000201), trata como qrString.
-            if (!string.IsNullOrWhiteSpace(qrCodeBase64) && LooksLikeEmv(qrCodeBase64) && string.IsNullOrWhiteSpace(qrString))
-            {
-                qrString = qrCodeBase64;
-                qrCodeBase64 = null;
-            }
-
-            // Caso base64 venha com prefixo data:image/..;base64,
-            if (!string.IsNullOrWhiteSpace(qrCodeBase64) && qrCodeBase64.IndexOf(",", StringComparison.Ordinal) >= 0 && qrCodeBase64.StartsWith("data:image", StringComparison.OrdinalIgnoreCase))
-            {
-                qrCodeBase64 = qrCodeBase64.Substring(qrCodeBase64.IndexOf(",") + 1);
-            }
-
-            // Se só achou base64 mas qrString está vazio, mantemos só base64.
-            return new QrExtractionResult
-            {
-                InvoiceId = invoiceId,
-                Code = code,
-                Status = status,
-                QrString = qrString,
-                QrCodeBase64 = qrCodeBase64,
-                QrCodeUrl = qrUrl,
-                TotalAmountCents = totalAmountCents,
-                Devedor = devedor
-            };
+            return invoice;
         }
 
-        private static string GetStringByPath(JObject obj, string jsonPath)
+        private static List<CoraInvoiceResponse> DeserializeInvoiceList(string responseBody)
         {
-            if (obj == null || string.IsNullOrWhiteSpace(jsonPath))
-                return null;
+            if (string.IsNullOrWhiteSpace(responseBody))
+                throw new ArgumentException("Resposta vazia da Cora.");
 
-            var token = obj.SelectToken(jsonPath);
-            if (token == null || token.Type != JTokenType.String)
-                return null;
+            var token = JToken.Parse(responseBody);
 
-            var value = token.ToString();
-            return string.IsNullOrWhiteSpace(value) ? null : value;
-        }
-
-        private static int? GetIntByPath(JObject obj, string jsonPath)
-        {
-            if (obj == null || string.IsNullOrWhiteSpace(jsonPath))
-                return null;
-
-            var token = obj.SelectToken(jsonPath);
-            if (token == null)
-                return null;
-
-            if (token.Type == JTokenType.Integer)
-                return token.Value<int>();
-
-            if (token.Type == JTokenType.Float)
-                return (int)Math.Round(token.Value<double>(), MidpointRounding.AwayFromZero);
-
-            if (token.Type == JTokenType.String)
-            {
-                int parsed;
-                if (int.TryParse(token.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed))
-                    return parsed;
-            }
-
-            return null;
-        }
-
-        private static JArray ExtractFirstArray(JToken token)
-        {
-            if (token == null)
-                return new JArray();
-
-            var arr = token as JArray;
-            if (arr != null)
-                return arr;
+            var array = token as JArray;
+            if (array != null)
+                return array.ToObject<List<CoraInvoiceResponse>>() ?? new List<CoraInvoiceResponse>();
 
             var obj = token as JObject;
             if (obj != null)
             {
                 var candidates = new[] { "invoices", "data", "items", "results" };
-                foreach (var c in candidates)
+                foreach (var key in candidates)
                 {
-                    var t = obj[c];
-                    var a = t as JArray;
+                    var a = obj[key] as JArray;
                     if (a != null)
-                        return a;
-                }
-
-                foreach (var prop in obj.Properties())
-                {
-                    var a = prop.Value as JArray;
-                    if (a != null)
-                        return a;
+                        return a.ToObject<List<CoraInvoiceResponse>>() ?? new List<CoraInvoiceResponse>();
                 }
             }
 
-            return new JArray();
+            throw new ArgumentException("Resposta inválida da Cora: " + responseBody);
         }
 
-        private static string NormalizeUrl(string value)
+        private static string GenerateQrCodeBase64(string text)
         {
-            if (string.IsNullOrWhiteSpace(value))
+            if (string.IsNullOrWhiteSpace(text))
                 return null;
 
-            var cleaned = new string(value.Where(c => !char.IsWhiteSpace(c) && c != '`' && c != '"').ToArray());
-            return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned;
-        }
-
-        private static string FindFirstString(JToken token, params string[] keys)
-        {
-            if (token == null)
-                return null;
-
-            var keySet = new HashSet<string>(keys ?? new string[0], StringComparer.OrdinalIgnoreCase);
-            return FindFirstStringRecursive(token, keySet);
-        }
-
-        private static string FindFirstStringRecursive(JToken token, HashSet<string> keySet)
-        {
-            if (token == null)
-                return null;
-
-            // Quando é objeto com propriedades, checa chave/valor.
-            var obj = token as JObject;
-            if (obj != null)
+            using (var ms = new MemoryStream())
             {
-                foreach (var prop in obj.Properties())
-                {
-                    if (keySet.Contains(prop.Name) && prop.Value != null && prop.Value.Type == JTokenType.String)
-                        return prop.Value.ToString();
+                var bw = new BarcodeWriter();
+                var encOptions = new EncodingOptions() { Width = 200, Height = 200, Margin = 0 };
+                bw.Options = encOptions;
+                bw.Format = BarcodeFormat.QR_CODE;
 
-                    var nested = FindFirstStringRecursive(prop.Value, keySet);
-                    if (!string.IsNullOrWhiteSpace(nested))
-                        return nested;
+                using (var bitmap = new Bitmap(bw.Write(text)))
+                {
+                    bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Jpeg);
+                    return Convert.ToBase64String(ms.GetBuffer());
                 }
             }
-
-            var arr = token as JArray;
-            if (arr != null)
-            {
-                foreach (var item in arr)
-                {
-                    var nested = FindFirstStringRecursive(item, keySet);
-                    if (!string.IsNullOrWhiteSpace(nested))
-                        return nested;
-                }
-            }
-
-            return null;
-        }
-
-        private static bool LooksLikeEmv(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return false;
-
-            // EMV Pix geralmente começa com "000201" e contém "br.gov.bcb.pix".
-            return value.StartsWith("000201", StringComparison.OrdinalIgnoreCase)
-                || value.IndexOf("br.gov.bcb.pix", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static string MapCoraStatusToCobStatus(string status)
@@ -725,16 +514,64 @@ namespace Negocio.Requests.RequestServices
             public string ResponseBody { get; set; }
         }
 
-        private class QrExtractionResult
+        private class CoraInvoiceResponse
         {
-            public string InvoiceId { get; set; }
-            public string Code { get; set; }
+            [JsonProperty("id")]
+            public string Id { get; set; }
+
+            [JsonProperty("status")]
             public string Status { get; set; }
-            public string QrString { get; set; }
-            public string QrCodeBase64 { get; set; }
-            public string QrCodeUrl { get; set; }
-            public int? TotalAmountCents { get; set; }
-            public Devedor Devedor { get; set; }
+
+            [JsonProperty("code")]
+            public string Code { get; set; }
+
+            [JsonProperty("total_amount")]
+            public int? TotalAmount { get; set; }
+
+            [JsonProperty("customer")]
+            public CoraCustomer Customer { get; set; }
+
+            [JsonProperty("payment_options")]
+            public CoraPaymentOptions PaymentOptions { get; set; }
+
+            [JsonProperty("pix")]
+            public CoraPix Pix { get; set; }
+        }
+
+        private class CoraCustomer
+        {
+            [JsonProperty("name")]
+            public string Name { get; set; }
+
+            [JsonProperty("document")]
+            public CoraDocument Document { get; set; }
+        }
+
+        private class CoraDocument
+        {
+            [JsonProperty("identity")]
+            public string Identity { get; set; }
+
+            [JsonProperty("type")]
+            public string Type { get; set; }
+        }
+
+        private class CoraPaymentOptions
+        {
+            [JsonProperty("bank_slip")]
+            public CoraBankSlip BankSlip { get; set; }
+        }
+
+        private class CoraBankSlip
+        {
+            [JsonProperty("url")]
+            public string Url { get; set; }
+        }
+
+        private class CoraPix
+        {
+            [JsonProperty("emv")]
+            public string Emv { get; set; }
         }
     }
 }

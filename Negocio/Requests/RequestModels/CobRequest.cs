@@ -10,7 +10,7 @@ namespace Negocio.Requests.RequestModels
         // Se não for enviado, Json.NET mantém null (default), e o controller trata como Bradesco (0).
         // Use `provider: 1` para Cora.
         [JsonProperty("provider")]
-        public string Provider { get; set; }
+        public string Provider { get; set; } = "bradesco";
 
         public CobRequest(string _chave) : base(_chave)
         {
