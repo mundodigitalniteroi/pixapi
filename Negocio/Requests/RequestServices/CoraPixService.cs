@@ -66,11 +66,10 @@ namespace Negocio.Requests.RequestServices
 
             var cob = new Cob(request.Chave)
             {
-                Txid = invoice.Code ?? txId,
+                Txid = invoice.Id ?? txId,
                 Status = status,
                 QrTexto = emv,
                 QrCode = !string.IsNullOrWhiteSpace(emv) ? GenerateQrCodeBase64(emv) : null,
-                Referencia = invoice.Id,
 
                 Valor = request.Valor,
                 merchant = request.merchant,
@@ -85,9 +84,9 @@ namespace Negocio.Requests.RequestServices
             if (request == null)
                 throw new ArgumentNullException(nameof(request));
 
-            var invoiceId = request.Referencia;
+            var invoiceId = request.txId;
             if (string.IsNullOrWhiteSpace(invoiceId))
-                throw new ArgumentException("Referencia (id da invoice da Cora) não informado.");
+                throw new ArgumentException("txId (id da invoice da Cora) não informado.");
 
             var clientId = request.Parametros.ClientId;
             var certPath = request.Parametros.Certificate;
@@ -115,11 +114,10 @@ namespace Negocio.Requests.RequestServices
 
             var cob = new Cob(request.Chave)
             {
-                Txid = invoice.Code ?? request.txId,
+                Txid = invoice.Id ?? invoiceId,
                 Status = status,
                 QrTexto = emv,
                 QrCode = !string.IsNullOrWhiteSpace(emv) ? GenerateQrCodeBase64(emv) : null,
-                Referencia = invoice.Id ?? invoiceId,
 
                 Valor = request.Valor ?? BuildValorFromTotalAmountCents(invoice.TotalAmount),
                 merchant = request.merchant,
@@ -179,11 +177,10 @@ namespace Negocio.Requests.RequestServices
 
                 cobs.Add(new Cob(request.Chave)
                 {
-                    Txid = invoice.Code ?? invoice.Id,
+                    Txid = invoice.Id,
                     Status = status,
                     QrTexto = emv,
                     QrCode = !string.IsNullOrWhiteSpace(emv) ? GenerateQrCodeBase64(emv) : null,
-                    Referencia = invoice.Id,
                     Valor = BuildValorFromTotalAmountCents(invoice.TotalAmount),
                     Devedor = BuildDevedorFromCustomer(invoice.Customer != null ? invoice.Customer.Name : null, invoice.Customer != null && invoice.Customer.Document != null ? invoice.Customer.Document.Type : null, invoice.Customer != null && invoice.Customer.Document != null ? invoice.Customer.Document.Identity : null)
                 });

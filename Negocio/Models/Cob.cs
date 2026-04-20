@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 using Negocio.Models.CobrancaModels;
 using Negocio.Models.PayloadModels;
 using System;
@@ -32,9 +32,6 @@ namespace Negocio.Models
 
         [JsonProperty("qrCode")]
         public string QrCode { get; set; }
-
-        [JsonProperty("referencia")]
-        public string Referencia { get; set; }
 
         [JsonIgnore]
         public decimal PixValorTotal => HasPix ? Pix.Sum(x => x.ValorToDecimal) : 0;
