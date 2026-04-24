@@ -72,7 +72,6 @@ namespace Negocio.Requests.RequestServices
                 QrCode = !string.IsNullOrWhiteSpace(emv) ? GenerateQrCodeBase64(emv) : null,
 
                 Valor = request.Valor,
-                merchant = request.merchant,
                 SolicitacaoPagador = request.SolicitacaoPagador
             };
 
@@ -120,7 +119,6 @@ namespace Negocio.Requests.RequestServices
                 QrCode = !string.IsNullOrWhiteSpace(emv) ? GenerateQrCodeBase64(emv) : null,
 
                 Valor = request.Valor ?? BuildValorFromTotalAmountCents(invoice.TotalAmount),
-                merchant = request.merchant,
                 SolicitacaoPagador = request.SolicitacaoPagador,
                 Devedor = request.Devedor ?? BuildDevedorFromCustomer(invoice.Customer != null ? invoice.Customer.Name : null, invoice.Customer != null && invoice.Customer.Document != null ? invoice.Customer.Document.Type : null, invoice.Customer != null && invoice.Customer.Document != null ? invoice.Customer.Document.Identity : null)
             };

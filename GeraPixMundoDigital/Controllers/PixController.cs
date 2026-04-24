@@ -74,7 +74,26 @@ namespace GeraPixMundoDigital.Controllers
             if (provider == "cora")
             {
                 var coraService = new CoraPixService();
-                return await coraService.Create(txId, _cobranca);
+                var cb = await coraService.Create(txId, _cobranca);
+
+                if (cb != null)
+                {
+                    cb.Calendario = new Calendario
+                    {
+                        Criacao = DateTime.UtcNow,
+                        Expiracao = 86400
+                    };
+
+                    cb.Location = string.Empty;
+                    cb.Loc = new Loc
+                    {
+                        Id = 0,
+                        Location = string.Empty,
+                        TipoCob = "cob"
+                    };
+                }
+
+                return cb;
             }
             else
             {
