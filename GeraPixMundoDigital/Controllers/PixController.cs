@@ -152,12 +152,20 @@ namespace GeraPixMundoDigital.Controllers
 
                 var cb = await cobRequest.GetByTxId(_cobranca.txId);
 
+                if (cb?.Loc != null)
+                    cb.Loc.Id = 0;
+
                 return cb;
             }
             else if (provider == "cora" && _cobranca.Parametros != null)
             {
                 var coraService = new CoraPixService();
-                return await coraService.GetByReferencia(_cobranca);
+                var cb = await coraService.GetByReferencia(_cobranca);
+
+                if (cb?.Loc != null)
+                    cb.Loc.Id = 0;
+
+                return cb;
             }
             throw new HttpResponseException(HttpStatusCode.BadRequest);
         }
