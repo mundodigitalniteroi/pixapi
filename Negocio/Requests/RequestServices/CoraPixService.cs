@@ -269,7 +269,7 @@ namespace Negocio.Requests.RequestServices
 
         private async Task<InvoiceCreateResult> CreateInvoice(string apiBaseUrl, string accessToken, string idempotencyKey, object payload, X509Certificate2 certificate)
         {
-            var invoiceUrl = apiBaseUrl.TrimEnd('/') + "/v2/invoices//";
+            var invoiceUrl = apiBaseUrl.TrimEnd('/') + "/v2/invoices/";
 
             using (var handler = new HttpClientHandler())
             {
