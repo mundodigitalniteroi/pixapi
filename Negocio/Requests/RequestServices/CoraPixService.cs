@@ -351,7 +351,7 @@ namespace Negocio.Requests.RequestServices
                 identity = new string(identity.Where(char.IsDigit).ToArray());
 
             if (string.IsNullOrWhiteSpace(identity))
-                identity = "00000000000";
+                identity = "00000000191";
 
             var documentType = request?.Devedor != null && request.Devedor.IsCNPJ ? "CNPJ" : "CPF";
             if (string.IsNullOrWhiteSpace(documentType))
